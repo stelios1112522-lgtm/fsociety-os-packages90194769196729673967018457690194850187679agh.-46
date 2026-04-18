@@ -1,7 +1,4 @@
-# Ignore temporary files
+# FSOCIETY OS Package Repository
+*.log
 *.tmp
-*.bak
-
-# Keep the repository clean
 .DS_Store
-Thumbs.db
