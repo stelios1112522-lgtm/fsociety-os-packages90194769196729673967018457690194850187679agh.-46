@@ -1,0 +1,195 @@
+#!/bin/bash
+# =============================================================================
+# fspkg - FSOCIETY OS Package Manager
+# =============================================================================
+# This is the official package manager for FSOCIETY OS.
+# Currently wraps xbps with FSOCIETY-specific repository configuration.
+# Future versions will be a fully standalone implementation.
+# =============================================================================
+
+set -e
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+FSPKG_REPO="https://raw.githubusercontent.com/stelios1112522-lgtm/fsociety-os-packages90194769196729673967018457690194850187679agh.-46/main"
+FSPKG_CONF_DIR="/etc/fspkg"
+FSPKG_CONF="$FSPKG_CONF_DIR/repos.conf"
+XBPSCMD="xbps-install"
+XBPSQUERY="xbps-query"
+
+# -----------------------------------------------------------------------------
+# Colors
+# -----------------------------------------------------------------------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+print_usage() {
+    cat << EOF
+${GREEN}FSOCIETY OS Package Manager - fspkg${NC}
+
+Usage: fspkg <command> [options] [packages]
+
+Commands:
+  install <pkg>...     Install one or more packages
+  remove <pkg>...      Remove one or more packages
+  update               Update repository index
+  upgrade              Upgrade all installed packages
+  search <pattern>     Search for packages matching pattern
+  info <pkg>           Show detailed information about a package
+  list                 List all installed packages
+  sync                 Sync repository and upgrade all packages
+  repo add <url>       Add a custom repository
+  repo list            List configured repositories
+  repo remove <url>    Remove a repository
+  toolset <profile>    Install a predefined toolset (whitehat, bluehat, blackhat, greenhat)
+  version              Show fspkg version
+
+Options:
+  -y, --yes            Assume yes to all prompts
+  -v, --verbose        Show verbose output
+  -h, --help           Show this help message
+
+Examples:
+  fspkg install nmap metasploit
+  fspkg search "web"
+  fspkg toolset whitehat
+  fspkg upgrade
+EOF
+}
+
+init_repo_config() {
+    if [ ! -d "$FSPKG_CONF_DIR" ]; then
+        sudo mkdir -p "$FSPKG_CONF_DIR"
+    fi
+    if [ ! -f "$FSPKG_CONF" ]; then
+        echo "[INFO] Initializing fspkg repository configuration..."
+        echo "# FSOCIETY OS Package Repositories" | sudo tee "$FSPKG_CONF" > /dev/null
+        echo "repository=$FSPKG_REPO" | sudo tee -a "$FSPKG_CONF" > /dev/null
+        echo "[SUCCESS] Repository configured: $FSPKG_REPO"
+    fi
+}
+
+sync_repos() {
+    echo "[INFO] Syncing repositories..."
+    sudo xbps-install -S
+}
+
+# -----------------------------------------------------------------------------
+# Command Handlers
+# -----------------------------------------------------------------------------
+cmd_install() {
+    local yes_flag=""
+    for arg in "$@"; do
+        case $arg in
+            -y|--yes) yes_flag="-y" ;;
+            -v|--verbose) set -x ;;
+            *) packages="$packages $arg" ;;
+        esac
+    done
+    init_repo_config
+    sync_repos
+    echo "[INFO] Installing: $packages"
+    sudo $XBPSCMD $yes_flag $packages
+}
+
+cmd_remove() {
+    echo "[INFO] Removing: $@"
+    sudo xbps-remove -R "$@"
+}
+
+cmd_update() {
+    init_repo_config
+    sync_repos
+}
+
+cmd_upgrade() {
+    init_repo_config
+    sync_repos
+    echo "[INFO] Upgrading all packages..."
+    sudo xbps-install -Su
+}
+
+cmd_search() {
+    init_repo_config
+    sync_repos
+    $XBPSQUERY -Rs "$1"
+}
+
+cmd_info() {
+    $XBPSQUERY -R "$1"
+}
+
+cmd_list() {
+    $XBPSQUERY -l
+}
+
+cmd_sync() {
+    init_repo_config
+    sync_repos
+    sudo xbps-install -Su
+}
+
+cmd_toolset() {
+    local profile="$1"
+    case "$profile" in
+        whitehat)
+            packages="nmap metasploit-framework burpsuite zaproxy aircrack-ng sqlmap hydra john hashcat wireshark"
+            ;;
+        bluehat)
+            packages="wazuh elasticsearch kibana logstash suricata zeek snort osquery velociraptor"
+            ;;
+        blackhat)
+            packages="havoc sliver mythic crackmapexec impacket mimikatz bloodhound powersploit"
+            ;;
+        greenhat)
+            packages="tryhackme-cli hackthebox-cli pwntools gdb-peda gef radare2 ghidra"
+            ;;
+        *)
+            echo -e "${RED}[ERROR] Unknown profile: $profile${NC}"
+            echo "Available profiles: whitehat, bluehat, blackhat, greenhat"
+            return 1
+            ;;
+    esac
+    echo "[INFO] Installing $profile toolset..."
+    cmd_install -y $packages
+}
+
+cmd_version() {
+    echo "fspkg version 0.1.0 - FSOCIETY OS Package Manager"
+}
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+if [ $# -eq 0 ]; then
+    print_usage
+    exit 0
+fi
+
+COMMAND="$1"
+shift
+
+case "$COMMAND" in
+    install)     cmd_install "$@" ;;
+    remove)      cmd_remove "$@" ;;
+    update)      cmd_update ;;
+    upgrade)     cmd_upgrade ;;
+    search)      cmd_search "$@" ;;
+    info)        cmd_info "$@" ;;
+    list)        cmd_list ;;
+    sync)        cmd_sync ;;
+    toolset)     cmd_toolset "$@" ;;
+    version)     cmd_version ;;
+    -h|--help)   print_usage ;;
+    *)
+        echo -e "${RED}[ERROR] Unknown command: $COMMAND${NC}"
+        print_usage
+        exit 1
+        ;;
+esac
