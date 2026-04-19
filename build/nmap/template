@@ -1,0 +1,8 @@
+pkgname=nmap
+version=7.95
+revision=1
+archs="x86_64"
+short_desc="Network exploration tool and security scanner"
+maintainer="FSOCIETY OS <packages@fsocietyos.com>"
+homepage="https://nmap.org"
+license="GPL-2.0-only"

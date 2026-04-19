@@ -1,0 +1,8 @@
+pkgname=fsociety-hello
+version=1.0
+revision=1
+archs="x86_64"
+short_desc="FSOCIETY OS test package"
+maintainer="FSOCIETY OS <packages@fsocietyos.com>"
+homepage="https://fsocietyos.com"
+license="MIT"
